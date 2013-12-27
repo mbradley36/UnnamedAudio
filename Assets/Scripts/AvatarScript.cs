@@ -51,7 +51,7 @@ public class AvatarScript : MonoBehaviour {
 	public Material lightMTRL; // to change between MTRLs
 	public Material heavyMTRL;
 
-	//public ParticleSystem scrapeParticles;
+	public ParticleSystem scrapeParticles;
 
 	public AudioClip collideLight; // our clips to be assigned
 	public AudioClip landLight;
@@ -386,7 +386,7 @@ public class AvatarScript : MonoBehaviour {
 			collideSound = collideLight;
 			head.renderer.material = lightMTRL;
 			body.renderer.material = lightMTRL;
-			//body.transform.localScale = new Vector3 (3,5,3);
+			body.transform.localScale = new Vector3 (3,5,3);
 
 			if(!firstInit) { // increase speed
 				speed = speed * 2;
@@ -399,7 +399,7 @@ public class AvatarScript : MonoBehaviour {
 			collideSound = collideHeavy;
 			head.renderer.material = heavyMTRL;
 			body.renderer.material = heavyMTRL;
-			//body.transform.localScale = new Vector3 (5,5,3); // widen character
+			body.transform.localScale = new Vector3 (5,5,3); // widen character
 			body.transform.localPosition = new Vector3(0, -1, 0); // lower body and head
 			head.transform.localPosition = new Vector3(0, -1, 0);
 
@@ -433,15 +433,15 @@ public class AvatarScript : MonoBehaviour {
 		// character 1's walk
 		if ( currChar == 1 ) {
 			// steatch out and lean when walking	
-	 		//body.transform.localScale = Vector3.Lerp(body.transform.localScale, new Vector3(2,6,3), (speed*Time.deltaTime));
+	 		body.transform.localScale = Vector3.Lerp(body.transform.localScale, new Vector3(2,6,3), (speed*Time.deltaTime));
 	 		head.transform.localPosition = Vector3.Lerp(body.transform.localPosition, new Vector3(0,2,0), (speed*Time.deltaTime));
 		}
 		// character 2's walk
 		else if ( currChar == 2 ) {
 			head.transform.localPosition = new Vector3 (0F,-1.5F,0F); // lower head
 			if ( moveDirection.x > 0 ) {  // scrape particles and noise
-				//scrapeParticles.transform.localPosition = new Vector3 (-3F, -4F, 0F); // emit sparks/particles behind char	
-		 		//scrapeParticles.Emit(3);
+				scrapeParticles.transform.localPosition = new Vector3 (-3F, -4F, 0F); // emit sparks/particles behind char	
+		 		scrapeParticles.Emit(3);
 
 		 		audio.clip = groundScrape; // set our audio clip so we can check if playing
 		 		if( !audio.isPlaying) {
@@ -449,8 +449,8 @@ public class AvatarScript : MonoBehaviour {
 		 			audio.Play();
 		 		}
 			} else if ( moveDirection.x <0 ) {
-				//scrapeParticles.transform.localPosition = new Vector3 (3F, -3.5F, 0F); // emit sparks/particles behind char
-				//scrapeParticles.Emit(3);
+				scrapeParticles.transform.localPosition = new Vector3 (3F, -3.5F, 0F); // emit sparks/particles behind char
+				scrapeParticles.Emit(3);
 
 				audio.clip = groundScrape; // scrape audio
 		 		if( !audio.isPlaying) {
@@ -468,7 +468,7 @@ public class AvatarScript : MonoBehaviour {
 		// Jumping 
 		if ( currChar == 1 ) {
 			// bounce on jumps
-			//body.transform.localScale = Vector3.Lerp(body.transform.localScale, new Vector3(3,5,3), (speed*Time.deltaTime));
+			body.transform.localScale = Vector3.Lerp(body.transform.localScale, new Vector3(3,5,3), (speed*Time.deltaTime));
 			body.transform.localPosition = Vector3.Lerp(body.transform.localPosition, new Vector3(0,1,0), (speed*Time.deltaTime));
 			Vector3 newHeadPosition = head.transform.localPosition;
 			newHeadPosition.y ++;
@@ -491,7 +491,7 @@ public class AvatarScript : MonoBehaviour {
 
 		if ( currChar == 1 ) {
 			// squish down
-			//body.transform.localScale = Vector3.Lerp(body.transform.localScale, new Vector3(5,4,3), (speed*Time.deltaTime));
+			body.transform.localScale = Vector3.Lerp(body.transform.localScale, new Vector3(5,4,3), (speed*Time.deltaTime));
 			head.transform.localPosition = Vector3.Lerp(body.transform.localPosition, new Vector3(0,0,0), (speed*Time.deltaTime));
 			body.transform.localPosition = Vector3.Lerp(body.transform.localPosition, new Vector3(0,-1.5f,0), (speed*Time.deltaTime));
 
@@ -510,17 +510,17 @@ public class AvatarScript : MonoBehaviour {
 		// for side collisions
 		if ( debug ) Debug.Log("colliding");
 		if ( currChar == 1 ) { // change direction on collision
-			moveDirection.x = -(moveDirection.x/2);		
+			moveDirection.x = -moveDirection.x;		
 		}
 		else if ( currChar == 2 ) {
 			// emit sparks/particles along wall
 			if ( bumpRight ) { 
-				//scrapeParticles.transform.localPosition = new Vector3 (2F, 0F, 0F);	
-		 		//scrapeParticles.Emit(3);
+				scrapeParticles.transform.localPosition = new Vector3 (2F, 0F, 0F);	
+		 		scrapeParticles.Emit(3);
 		 	}
 		 	else if ( bumpLeft ) {
-		 		//scrapeParticles.transform.localPosition = new Vector3 (-2F, 0F, 0F);	
-		 		//scrapeParticles.Emit(3);
+		 		scrapeParticles.transform.localPosition = new Vector3 (-2F, 0F, 0F);	
+		 		scrapeParticles.Emit(3);
 		 	}
 		}
 	}
