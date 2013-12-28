@@ -104,7 +104,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 73805983}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 24.4063034, y: 5.06878662, z: -22.3628693}
+  m_LocalPosition: {x: 24.4063034, y: 7.00007629, z: -22.3628693}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -420,7 +420,7 @@ Camera:
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 0
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_HDR: 0
@@ -2048,7 +2048,6 @@ GameObject:
   - 114: {fileID: 1393378113}
   - 136: {fileID: 1393378114}
   - 54: {fileID: 1393378116}
-  - 81: {fileID: 1393378117}
   - 82: {fileID: 1393378118}
   - 82: {fileID: 1393378119}
   - 82: {fileID: 1393378120}
@@ -2068,7 +2067,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1393378111}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -23.0950012, y: 56.8109627, z: .999999762}
+  m_LocalPosition: {x: -23.0950012, y: 6.82367325, z: .999999762}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 1366321040}
@@ -2083,7 +2082,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1393378111}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ca1815949dabe4322a7e77288c511a45, type: 3}
+  m_Script: {fileID: 11500000, guid: fb48639cf86fe4f84a57fa6e65855f29, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   speed: 15
@@ -2097,7 +2096,7 @@ MonoBehaviour:
   scrapeParticles: {fileID: 685626625}
   collideLight: {fileID: 8300000, guid: 2fe4ef77b62d44c02b7038dcb1cb2888, type: 3}
   landLight: {fileID: 8300000, guid: 58d9f9ee3169b44a78b0716bfcd1e363, type: 3}
-  collideHeavy: {fileID: 8300000, guid: a8ad13b5a3a8740beb2724f881d6937d, type: 3}
+  collideHeavy: {fileID: 8300000, guid: ac58d8b7fbc66450bb00414397076148, type: 3}
   landHeavy: {fileID: 8300000, guid: 5477f5f174c934d92be6b47529ab0e15, type: 3}
   groundScrape: {fileID: 8300000, guid: 4f457d7a326b44fd1b4c67eee76ad590, type: 3}
 --- !u!136 &1393378114
@@ -2161,13 +2160,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!81 &1393378117
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_GameObject: {fileID: 1393378111}
-  m_Enabled: 0
 --- !u!82 &1393378118
 AudioSource:
   m_ObjectHideFlags: 0
@@ -2183,11 +2175,11 @@ AudioSource:
   Loop: 0
   Mute: 0
   Priority: 128
-  DopplerLevel: 1
+  DopplerLevel: 5
   MinDistance: 1
-  MaxDistance: 500
+  MaxDistance: 100
   Pan2D: 0
-  rolloffMode: 0
+  rolloffMode: 1
   BypassEffects: 0
   BypassListenerEffects: 0
   BypassReverbZones: 0
@@ -2294,7 +2286,7 @@ AudioSource:
   serializedVersion: 3
   m_audioClip: {fileID: 8300000, guid: a8ad13b5a3a8740beb2724f881d6937d, type: 3}
   m_PlayOnAwake: 0
-  m_Volume: .737999976
+  m_Volume: 1
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -2361,7 +2353,7 @@ AudioSource:
   MinDistance: 1
   MaxDistance: 500
   Pan2D: 0
-  rolloffMode: 2
+  rolloffMode: 0
   BypassEffects: 0
   BypassListenerEffects: 0
   BypassReverbZones: 0

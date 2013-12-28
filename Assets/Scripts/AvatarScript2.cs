@@ -34,209 +34,495 @@ using System.Collections;
 /// </summary>
 /// 
 public class AvatarScript2 : MonoBehaviour {
-	//Physics references
-	float speed;
-    public float lightSpeed = 6.0F;
-    public float heavySpeed = 2.0F;
+	// movement property references
+    public float speed = 6.0F;
     public float jumpSpeed = 8.0F;
-    public float gravity = 10.0F;
+	public float gravity = 10.0F;
+	
+	// could get these from the collider, but wanted to be able to change them
+	public float cHeight = 4.5f; 
+	public float cWidth = 2f; 
+	// a small delta for making sure the avatar remains in contact with the object it collided with
+	public float cDelta = 0.01f;
+	
+	// our movement vector
+	private Vector3 moveDirection = Vector3.zero;
+
+	public Material lightMTRL; // to change between MTRLs
+	public Material heavyMTRL;
+
+	public ParticleSystem scrapeParticles;
 
 	public AudioClip collideLight; // our clips to be assigned
 	public AudioClip landLight;
 	public AudioClip collideHeavy;
 	public AudioClip landHeavy;
-	
-    private Vector3 moveDirection = Vector3.zero;
-	//Animation references:  if you want to control the kids and do something with them
+	public AudioClip groundScrape;
+
+	private AudioClip landSound; // to hold current char's clips
+	private AudioClip collideSound;
+
+	// Animation references:  if you want to control the kids and do something with them
 	int counter = 0;
 	GameObject head;
 	GameObject body;
-	
+
+	private int animState; // different states of animation
+	const int idle = 0;
+	const int walking = 1;
+	const int jumping = 2;
+	const int falling = 3;
+
+	private int goalRot = 0; // for character 1's flips
+	private float prevDirection; // to compare for direction changes
+	private bool directionChange = false;
+
+	private int currChar; // 1 - light, 2 - heavy
+
+	private bool debug = false; // for turning on/off debug log
+	private bool firstInit;
+	private bool canDoubleJump = false; // for knowing when to switch jump types
+	private bool canFirstJump = false;
+	private bool doubleJumping = false;
+
+	float delta;
+	float delta2;
+
 	// a simple start to Character controller capabilities
 	bool bumpTop;
 	bool bumpLeft;
 	bool bumpRight;
 	bool bumpBottom;
-	bool onWall = false;
 	bool isGrounded = false;
-
-	private int animState; // different states of animation
-	const int idle = 0;
-	const int walking = 1;
-	const int falling = 2;
-	const int colliding = 3;
+	// "depth" of the collider into the object collided with.  Assume it's only in the 4 principle directions 
+	float leftD, rightD, topD, bottomD;
+	// need to move the clearing of variables out of fixedUpdate since fixedUpdate appears
+	// to be called more often then collisions and collisions seem NOT to happen every
+	// frame!??
+	bool initController = false;
 	
+
 	void Start (){
      	// Assign body parts to variables;  
 		// -> could also have these as properties you set in editor
 		// -> could also have used Transform.Find to only search in the children of this object
-		speed = lightSpeed;
 	 	head = GameObject.Find ("Head");
      	body = GameObject.Find ("Body");
-	 	counter = 0;
+
+		counter = 0;
 		bumpTop = bumpLeft = bumpRight = bumpBottom = false;
+		leftD = rightD = topD = bottomD = 0f;
 		isGrounded = false;
-		onWall = false;
+		initController = false;
+
+		firstInit = true; // set up first character
+		currChar = 2;
+		InitializeChar (2);
+		firstInit = false;
+		animState = idle;
+
+		prevDirection = moveDirection.x;
 	}
-
+	
+	// do you application logic, managing states and so on, in here.  These examples have no explicit
+	// states, but you should consider adding some to keep the code better organized
 	void Update() {
-        if (isGrounded) {
-        	if (!onWall) {
-	            moveDirection = new Vector3(Input.GetAxis("Horizontal"), 0f, 0f);
-	        } else {
-	        	if(bumpLeft && Input.GetAxis("Horizontal") > 0) {
-	        		moveDirection = new Vector3(Input.GetAxis("Horizontal"), 0f, 0f);
-	        	} else if(bumpLeft) {
-	        		moveDirection = new Vector3(0f, 0f, 0f);
-	        	} else if (bumpRight && Input.GetAxis("Horizontal") < 0) {
-	        		moveDirection = new Vector3(Input.GetAxis("Horizontal"), 0f, 0f);
-	        	} else if (bumpRight) {
-	        		moveDirection = new Vector3(0f, 0f, 0f);
-	        	}
-	        }
-	        moveDirection = transform.TransformDirection(moveDirection);
-           	moveDirection *= speed;
-            
-            if (Input.GetButton("Jump")){
-                moveDirection.y = jumpSpeed;
-				body.transform.Rotate(new Vector3(0,0,0));    
-			}
-        }
-		float delta = (Mathf.Sin(counter*0.2F)/2)+1.37118F;
-		float delta2 = (Mathf.Sin(counter*0.2F));
 
-		/*switch (state) { // determine which method to call
-			case idle:		Squish(); 		break;
-			case walking:		JellySwim();	break;
-			case falling:							break;
-			case colliding: 					break;
-		}*/
-				
-		if (bumpTop)
-		{
-			moveDirection.y = 0;
-		}
-		
-		if(moveDirection.y > 1){
-			// Jumping 
-			head.transform.localPosition = new Vector3(0F,delta,0F);
-			body.transform.Rotate(new Vector3(0,0,-body.transform.localEulerAngles.z));
-		} else if(moveDirection.y < -0.35){
-			// Falling
-			head.transform.localPosition = new Vector3(0F,delta,0F);
-			body.transform.Rotate(new Vector3(0,0,delta2));
-	    } else {
-			// Walking
-			if(isGrounded && !onWall){
-			 	head.transform.localScale = new Vector3 (1F,1F,1F);
-			 	head.transform.localPosition = new Vector3 (0F,1.371178F,0F);
-			 	if (moveDirection.x != 0 ) { 	
-			 		body.transform.Rotate(new Vector3(0,0,delta2));
-				} else {
-			 		body.transform.Rotate(new Vector3(0,0,-body.transform.localEulerAngles.z));		
-			 	}
+		for ( int i = 1; i < 3; i++ ) { // if 1 or 2 have been pressed, switch characters
+			if (Input.GetKeyDown(i.ToString()) && currChar != i) {
+				if ( debug ) Debug.Log( "Character changed to: " + i );
+				currChar = i;
+				InitializeChar(currChar);
 			}
 		}
+
+	    if ( canDoubleJump && currChar == 1 ){ // allows second jump on char 1
+	    	if ( Input.GetButton( "Jump" ) ) {
+	    		doubleJumping = true;
+	    		goalRot += 180; // increase angle to rotate to
+	            moveDirection.y = jumpSpeed;
+				body.transform.Rotate(new Vector3(0,0,0)); 
+			} 
+		}
+
+		// we only do input if on the ground. If you want to do left/right movement in the air, you 
+		// need to deal with it differently because you can't just reset the vector (you need to 
+		// add the input to the vector, as you do gravity)
+        if (isGrounded) { 
+            moveDirection = new Vector3(Input.GetAxis("Horizontal"), 0f, 0f);
+            moveDirection = transform.TransformDirection(moveDirection);
+            moveDirection *= speed;
+			
+			// move up off the ground by adding an upward impulse
+			if ( Input.GetButton("Jump") ) {
+				Debug.Log( "first jump" );
+                moveDirection.y = jumpSpeed;
+				body.transform.Rotate(new Vector3(0,0,0)); 
+			}
+			
+        } else {
+        	if ( currChar == 1 ) { // special considerations for char 1
+        		if ( canFirstJump ) { // can start first jump in air, since rarely on ground
+	        		if ( Input.GetButton("Jump") ) {
+					if ( debug ) Debug.Log( "first jump" );
+	                moveDirection.y = jumpSpeed;
+					body.transform.Rotate(new Vector3(0,0,0)); 
+					}	
+				}
+
+				if ( animState == falling ) { // allow to change direction if falling
+					if ( Input.GetAxis("Horizontal") > 0 ) moveDirection.x ++;
+	        		else if ( Input.GetAxis("Horizontal") < 0 ) moveDirection.x --;
+				}
+			}
+
+        }
+
+        if ( Input.GetButtonUp("Jump") ) { // switch between single and double jump
+        	if( !canDoubleJump && canFirstJump ) { // can't first jump again, can now double
+        		canDoubleJump = true; 
+        		canFirstJump = false;
+        	}
+        	else if ( canDoubleJump ) canDoubleJump = false; // can't double jump again until first jump
+        } 
+
+		// if we've bumped the top, and are moving upwards, stop the upward movement
+		// also, move down "almost" out of whatever we colided with
+		if (bumpTop && moveDirection.y > 0)
+		{
+			moveDirection.y = 0f;
+			transform.Translate(new Vector3(0f, -topD + cDelta, 0f));				
+		}
 		
+		// if we've bumped the left or right, and are moving in that direction, stop the movement
+		// also, move "almost" out of whatever we colided with
+		if (bumpLeft && moveDirection.x < 0)
+		{
+			HandleColliding(); // directly called for speed
+			transform.Translate(new Vector3(leftD - cDelta, 0f, 0f));						
+		} else if (bumpRight && moveDirection.x > 0)
+		{
+			HandleColliding();
+			transform.Translate(new Vector3(-rightD + cDelta, 0f, 0f));							
+		}
+
+		// if we are moving up (jumping) do silly things with the head object.  If we are moving down,
+		// do something different, yet also silly.  When we are walking, do something different, yet
+		// just as silly
+		if (isGrounded) 
+		{ 
+			if( debug ) Debug.Log ("GROUNDED");
+			animState = walking;
+		} else {
+			if( debug ) Debug.Log ("NOT GROUNDED");
+			if(moveDirection.y > 1) {
+				animState = jumping;
+			} else if(moveDirection.y < -0.35) {
+				animState = falling;
+				// note if direction suddenly changes while falling
+				if ( prevDirection == 0 && moveDirection.x != 0 ) {
+					goalRot += 180;
+					directionChange = true;
+				}
+		    } 
+		}
+
+		// if we're on the ground, and are "inside" whatever we are on, move "almost" out.  If we are 
+		// in the air, apply some gravity
 		if (isGrounded) 
 		{
-		} else {
-			if(bumpLeft || bumpRight) { // change x direction if wall hit while falling
-				moveDirection.x = -moveDirection.x;
-				moveDirection.y -= gravity * Time.deltaTime;
-			} else {
-				moveDirection.y -= gravity * Time.deltaTime;
+			// if below ground
+			if (bottomD > 0)
+			{
+				transform.Translate(new Vector3(0f, bottomD - cDelta, 0f));				
 			}
+		} else {
+			moveDirection.y -= gravity * Time.deltaTime;
 		} 
-        transform.Translate(moveDirection * Time.deltaTime);
+
+		if ( moveDirection.x == 0 && moveDirection.y == 0 ) { // set to idle if not moving
+			animState = idle;
+		}
+
+		switch ( animState ) { // determine which method to call
+			case idle:		 HandleIdle();			break;
+			case walking:	 HandleWalking();		break;
+			case jumping:	 HandleJumping();		break;
+			case falling:	 HandleFalling();		break;
+		}
+
+		// after all the movement is computed ... move!
+		transform.Translate(moveDirection * Time.deltaTime);
 		counter++;
+		// keep track of previous direction to detect sudden changes
+		prevDirection = moveDirection.x;
     }
 	
     void FixedUpdate() {
-		// reinitialize for checking for collisions.  FixedUpdate is called BEFORE any collisions.
-		// bumpTop = bumpLeft = bumpRight = bumpBottom = false;
-		bumpTop = bumpBottom = false;
-		isGrounded = false;
+		initController = true;
 	}
 	
-//		moveDirection = Vector3.Reflect(moveDirection, hit.normal);
+	void InitController() {
+		// reinitialize for checking for collisions.  FixedUpdate is called BEFORE any collisions.
+		bumpTop = bumpLeft = bumpRight = bumpBottom = false;
+		leftD = rightD = topD = bottomD = 0f;
+		isGrounded = false;
+		initController = false;
+		if( debug ) Debug.Log ("Init Controller");
+	}
+
+	// a simple function that sets the left/right/top/bottom based on a single collision contact point.
+	// the function also returns a boolean, indicating if we are "grounded", so that we can call the 
+	// function from collisionStay as well as collisionEnter
+	bool checkContactPoint (ContactPoint c)
+	{			
+		float dotUp = Vector3.Dot (c.normal, Vector3.up);
+		float dotLeft = Vector3.Dot (c.normal, Vector3.left);
+		Vector3 pt = transform.InverseTransformPoint(c.point);
+		float ydiff = cHeight - Mathf.Abs (pt.y); 
+		float xdiff = cWidth - Mathf.Abs (pt.x);
+				
+		//if( debug ) Debug.Log ("dots: " + dotUp + " " + dotLeft);
+		if (dotUp < -0.5) {
+			if (ydiff > topD) 
+				topD = ydiff;
+			bumpTop = true;
+			if( debug ) Debug.Log ("Bumped with Top");
+		}
+		else if (dotUp > 0.5)
+		{
+			if (ydiff > bottomD)
+				bottomD = ydiff;
+			bumpBottom = true;
+			if( debug ) Debug.Log ("Bumped with Bottom");
+		}
+		
+		if (dotLeft > 0.5) 
+		{
+			if (xdiff > rightD)
+				rightD = xdiff;
+			bumpRight = true;
+			if( debug ) Debug.Log ("Bumped with Right");
+		}
+		else if (dotLeft < -0.5)
+		{
+			if (xdiff > leftD)
+				leftD = xdiff;
+			bumpLeft = true;
+			if( debug ) Debug.Log ("Bumped with Left");
+		}
+
+		if ( bumpRight || bumpLeft || bumpTop ) {
+			audio.clip = collideSound;
+	 		if( !audio.isPlaying) {
+	 			if( debug ) Debug.Log("play collision");
+	 			audio.Play();
+			}
+		}
+		
+		// return if it's hit the bottom so we can check for grounded below
+		return (dotUp > 0.5);
+	}
 	
-	//
-	// *** Collision handling.  Update global variables for use in state machines
-	//
+	// Collision handling.  Update global variables for use in state machines.
+	// DO NOT do any of the application logic associated with states here.  Just compute the 
+	// various results of collisions, so that they can be used in Update once all the collisions 
+	// are processed
 	void OnCollisionEnter (Collision collision) {
         //Quaternion rot = Quaternion.FromToRotation(Vector3.up, contact.normal);
         //Vector3 pos = contact.point;
 
-        foreach (ContactPoint c in collision.contacts) {
-            //Debug.Log(c.thisCollider.name + " STAY ON " + c.otherCollider.name);
-            //Debug.Log("Collision: " + c.point + ", Normal: " + c.normal);
-        }
-		
-		// quick and dirty check on where we might have bumped (top or bottom).  
-		// really SHOULD be checking for LOCATION on capsule, rather than direction of motion
-		// but this demonstrates one way of looking at the collions
-        ContactPoint contact = collision.contacts[0];
-		float dot = Vector3.Dot (contact.normal, Vector3.up);
-		float dotSide = Vector3.Dot (contact.normal, Vector3.right);
+		// see if this is the first time this is called for this loop through the 
+		// collision routines
+		if (initController) InitController();
 
-		if (dot < -0.5) {
-			bumpTop = true;
-			Debug.Log ("Bumped with Top");
-		}
-		else if (dot > 0.5)
-		{
-			bumpBottom = true;
-			Debug.Log ("Bumped with Bottom");
-		}
-		else 
-		{
-			// determine which side has a collision
-			if (dotSide < -0.5 ) {
-				Debug.Log("Bumped with Right");
-				bumpRight = true;
-			} else if (dotSide > 0.5 ) {
-				Debug.Log("Bumped with Left");
-				bumpLeft = true;
+		foreach (ContactPoint c in collision.contacts) {
+            if( debug ) Debug.Log(c.thisCollider.name + " COLLIDES WITH " + c.otherCollider.name);
+            if( debug ) Debug.Log("Collision: " + transform.InverseTransformPoint(c.point) + ", Normal: " + c.normal);
+    		if (checkContactPoint(c))
+			{
+				audio.PlayOneShot( landSound ); // play sound for char hitting ground
+				isGrounded = true;			
+				if( debug ) Debug.Log ("Collision Enter GROUNDED");
 			}
 		}
 	}
 
 	void OnCollisionStay (Collision collision) {
-        foreach (ContactPoint c in collision.contacts) {
-            //Debug.Log(c.thisCollider.name + " STAY ON " + c.otherCollider.name);
-            //Debug.Log("Collision: " + c.point + ", Normal: " + c.normal);
-        }
-		
-		// if we have an ongoing collion, and it's with the bottom, we consider this "grounded"
-        ContactPoint contact = collision.contacts[0];
-		float dot = Vector3.Dot (contact.normal, Vector3.up);
-		float dotSide = Vector3.Dot (contact.normal, Vector3.right);
-		if (dot > 0.5)
-		{
-			isGrounded = true;			
-			//Debug.Log ("Collision Stay GROUNDED");
-		} else {
-			//Debug.Log ("Collision Stay not grounded");
-		}
+		// see if this is the first time this is called for this loop through the 
+		// collision routines
+		if (initController) InitController();
 
-		if (dotSide < -0.5 ) {
-			Debug.Log("Bumped with Right");
-			bumpRight = true;
-			onWall = true;
-		} else if (dotSide > 0.5 ) {
-			Debug.Log("Bumped with Left");
-			bumpLeft = true;
-			onWall = true;
-		}
+		foreach (ContactPoint c in collision.contacts) {
+            if( debug ) Debug.Log(c.thisCollider.name + " STAY ON " + c.otherCollider.name);
+            if( debug ) Debug.Log("Collision: " + transform.InverseTransformPoint(c.point) + ", Normal: " + c.normal);
+    		if (checkContactPoint(c))
+			{
+				canFirstJump = true; // reset initial jump
+				canDoubleJump = false; // reset double jump
+				doubleJumping = false;
+				isGrounded = true;			
+				if( debug ) Debug.Log ("Collision Stay GROUNDED");
+			}
+        }
 	}
 	
 	void OnCollisionExit () {
-		//Debug.Log ("Collision Exit");
+		// see if this is the first time this is called for this loop through the 
+		// collision routines
+		if (initController) InitController();
+
+		if( debug ) Debug.Log ("Collision Exit");
 		
 		// technically, there could be multiple simultaneous collisions (e.g., in a corner), so we should 
 		// keep track of which ones are ending here
 		isGrounded = false;
-		onWall = bumpLeft = bumpRight = false;
 	}
+
+	void InitializeChar (int i) {
+		if ( i == 1 ) {
+			if( debug ) Debug.Log("change to 1"); // set lighter sound and material
+			landSound = landLight;
+			collideSound = collideLight;
+			head.renderer.material = lightMTRL;
+			body.renderer.material = lightMTRL;
+			body.transform.localScale = new Vector3 (3,5,3);
+
+			if(!firstInit) { // increase speed
+				speed = speed * 2;
+				jumpSpeed = jumpSpeed * 2;
+				gravity = (int)((gravity -5) * 0.5);
+			}
+		} else if ( i == 2 ) {
+			if( debug ) Debug.Log("change to 2"); // set heavier sound and material
+			landSound = landHeavy;
+			collideSound = collideHeavy;
+			head.renderer.material = heavyMTRL;
+			body.renderer.material = heavyMTRL;
+			body.transform.localScale = new Vector3 (5,5,3); // widen character
+			body.transform.localPosition = new Vector3(0, -1, 0); // lower body and head
+			head.transform.localPosition = new Vector3(0, -1, 0);
+
+			//speed = (int)(speed * 0.5); // decrease speed
+			//jumpSpeed = (int)(jumpSpeed * 0.9);
+			gravity = (gravity * 1.5f);
+		}
+	}
+
+
+	//------------------------------------------------------------------------------------------------//
+	// state handling
+	//------------------------------------------------------------------------------------------------//
+	void HandleIdle () {
+		// straighten out characters
+		Quaternion goalRotationAngle = Quaternion.Euler(0, 0, 0);
+		body.transform.rotation = Quaternion.Lerp(body.transform.rotation, goalRotationAngle, (speed * Time.deltaTime));
+
+		// character 1's idle
+		if ( currChar == 1 ) {
+			moveDirection.y = (int)(jumpSpeed * 0.1); // lighter char is always moving
+		}
+		// character 2's idle
+		else if ( currChar == 2 ) {
+			// move head back
+			head.transform.localPosition = Vector3.Lerp(body.transform.localPosition, new Vector3(0,-1,0), (speed*Time.deltaTime));
+		}
+	}
+
+	void HandleWalking () {
+		// character 1's walk
+		if ( currChar == 1 ) {
+			// steatch out and lean when walking	
+	 		body.transform.localScale = Vector3.Lerp(body.transform.localScale, new Vector3(2,6,3), (speed*Time.deltaTime));
+	 		head.transform.localPosition = Vector3.Lerp(body.transform.localPosition, new Vector3(0,2,0), (speed*Time.deltaTime));
+		}
+		// character 2's walk
+		else if ( currChar == 2 ) {
+			head.transform.localPosition = new Vector3 (0F,-1.5F,0F); // lower head
+			if ( moveDirection.x > 0 ) {  // scrape particles and noise
+				scrapeParticles.transform.localPosition = new Vector3 (-3F, -4F, 0F); // emit sparks/particles behind char	
+		 		scrapeParticles.Emit(3);
+
+		 		audio.clip = groundScrape; // set our audio clip so we can check if playing
+		 		if( !audio.isPlaying) {
+		 			if ( debug ) Debug.Log("play scrape");
+		 			audio.Play();
+		 		}
+			} else if ( moveDirection.x <0 ) {
+				scrapeParticles.transform.localPosition = new Vector3 (3F, -3.5F, 0F); // emit sparks/particles behind char
+				scrapeParticles.Emit(3);
+
+				audio.clip = groundScrape; // scrape audio
+		 		if( !audio.isPlaying) {
+		 			if ( debug ) Debug.Log("play scrape");
+		 			audio.Play();
+				}
+			}
+			else {
+		 		
+			}
+		}
+	}
+
+	void HandleJumping () {
+		// Jumping 
+		if ( currChar == 1 ) {
+			// bounce on jumps
+			body.transform.localScale = Vector3.Lerp(body.transform.localScale, new Vector3(3,5,3), (speed*Time.deltaTime));
+			body.transform.localPosition = Vector3.Lerp(body.transform.localPosition, new Vector3(0,1,0), (speed*Time.deltaTime));
+			Vector3 newHeadPosition = head.transform.localPosition;
+			newHeadPosition.y ++;
+			head.transform.localPosition = Vector3.Lerp(body.transform.localPosition, newHeadPosition, (speed*Time.deltaTime));
+		}
+		else if ( currChar == 2 ) {
+			// no deformation, heavier
+		}
+
+		if ( doubleJumping ) { // if either char is in double jump
+			if ( debug ) Debug.Log("doubleJumping");
+			// make the body do a little flip
+			Quaternion goalRotationAngle = Quaternion.Euler(0, 0, goalRot); // set our goal rotation
+			body.transform.rotation = Quaternion.Lerp(body.transform.rotation, goalRotationAngle, (speed * Time.deltaTime));
+		}
+	}
+
+	void HandleFalling () {
+		// Falling
+
+		if ( currChar == 1 ) {
+			// squish down
+			body.transform.localScale = Vector3.Lerp(body.transform.localScale, new Vector3(5,4,3), (speed*Time.deltaTime));
+			head.transform.localPosition = Vector3.Lerp(body.transform.localPosition, new Vector3(0,0,0), (speed*Time.deltaTime));
+			body.transform.localPosition = Vector3.Lerp(body.transform.localPosition, new Vector3(0,-1.5f,0), (speed*Time.deltaTime));
+
+			if ( directionChange ) {
+				// if direction suddenly changes, do a little flip
+				Quaternion goalRotationAngle = Quaternion.Euler(0, 0, goalRot); // set our goal rotation
+				body.transform.rotation = Quaternion.Lerp(body.transform.rotation, goalRotationAngle, (speed * Time.deltaTime));
+			}
+		}
+		else if ( currChar == 2 ) {
+			// falls faster due to heavier gravity set on InitializeChar()
+		}
+	}
+
+	void HandleColliding () {
+		// for side collisions
+		if ( debug ) Debug.Log("colliding");
+		if ( currChar == 1 ) { // change direction on collision
+			moveDirection.x = -moveDirection.x;		
+		}
+		else if ( currChar == 2 ) {
+			// emit sparks/particles along wall
+			if ( bumpRight ) { 
+				scrapeParticles.transform.localPosition = new Vector3 (2F, 0F, 0F);	
+		 		scrapeParticles.Emit(3);
+		 	}
+		 	else if ( bumpLeft ) {
+		 		scrapeParticles.transform.localPosition = new Vector3 (-2F, 0F, 0F);	
+		 		scrapeParticles.Emit(3);
+		 	}
+		}
+	}
+
 }
