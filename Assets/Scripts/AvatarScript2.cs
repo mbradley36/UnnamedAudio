@@ -58,6 +58,7 @@ public class AvatarScript2 : MonoBehaviour {
 	public AudioClip collideHeavy;
 	public AudioClip landHeavy;
 	public AudioClip groundScrape;
+	public AudioClip jumpUp;
 
 	private AudioClip landSound; // to hold current char's clips
 	private AudioClip collideSound;
@@ -155,6 +156,10 @@ public class AvatarScript2 : MonoBehaviour {
 			
 			// move up off the ground by adding an upward impulse
 			if ( Input.GetButton("Jump") ) {
+				audio.clip = jumpUp;
+				if( !audio.isPlaying) {
+					audio.Play();
+				}
 				Debug.Log( "first jump" );
                 moveDirection.y = jumpSpeed;
 				body.transform.Rotate(new Vector3(0,0,0)); 
@@ -465,7 +470,7 @@ public class AvatarScript2 : MonoBehaviour {
 	}
 
 	void HandleJumping () {
-		// Jumping 
+		// Jumping
 		if ( currChar == 1 ) {
 			// bounce on jumps
 			body.transform.localScale = Vector3.Lerp(body.transform.localScale, new Vector3(3,5,3), (speed*Time.deltaTime));
