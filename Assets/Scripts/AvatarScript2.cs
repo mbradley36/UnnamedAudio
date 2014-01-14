@@ -5,6 +5,8 @@
 
 using UnityEngine;
 using System.Collections;
+using XInputDotNetPure;
+//using XInputInterface;
 
 /// <summary>
 /// PLEASE NOTE:  This is ONLY an example of how to use the CharController Update and 
@@ -53,6 +55,12 @@ public class AvatarScript2 : MonoBehaviour {
 
 	public ParticleSystem scrapeParticles;
 
+	public AnimationCurve motorCurve;
+	private float motorStart, secondMotorStart;
+	public int motorGapLength;
+	public float gapCorrection;
+	private int motorTimer = 0;
+
 	public AudioClip collideLight; // our clips to be assigned
 	public AudioClip landLight;
 	public AudioClip collideHeavy;
@@ -85,6 +93,7 @@ public class AvatarScript2 : MonoBehaviour {
 	private bool canDoubleJump = false; // for knowing when to switch jump types
 	private bool canFirstJump = false;
 	private bool doubleJumping = false;
+
 
 	float delta;
 	float delta2;
@@ -123,11 +132,46 @@ public class AvatarScript2 : MonoBehaviour {
 		animState = idle;
 
 		prevDirection = moveDirection.x;
+
+		//motorCurve.preWrapMode = WrapMode.ClampForever;
 	}
 	
 	// do you application logic, managing states and so on, in here.  These examples have no explicit
 	// states, but you should consider adding some to keep the code better organized
 	void Update() {
+
+		//stop motors
+		if (Input.GetKeyDown ("4")) {
+			motorTimer = motorGapLength +5;
+			motorStart = Time.time + motorCurve.length + 5;
+			secondMotorStart = motorStart;
+		}
+
+		motorTimer++;
+		Debug.Log ("motor timer is " + motorTimer + "and motorGapLength is " + motorGapLength);
+		if (motorTimer < motorGapLength){
+			motorStart = Time.time;
+			secondMotorStart = Time.time + motorCurve.length - gapCorrection;
+			Debug.LogWarning ("setting motor one at " + motorStart + " and motor two at " + secondMotorStart);
+		} else if (motorTimer>motorGapLength) {
+			triggerLeftMotor();
+		} /*else if (motorTimer == motorGapLength*4){
+			motorStart = Time.time;
+		} else if (motorTimer > motorGapLength*4) {
+			float leftMotorVal = 0;
+			float rightMotorVal = motorCurve.Evaluate(Time.time-motorStart);
+			GamePad.SetVibration(PlayerIndex.One, leftMotorVal, rightMotorVal);
+		}*/
+			
+			/*else if (motorTimer > 110){
+			motorTimer = 0;
+			for(float i= 0; i<0.6f; i+=0.1f) {
+				float leftMotorVal = 0.6f-i;
+				float rightMotorVal = 0;
+				GamePad.SetVibration(PlayerIndex.One, leftMotorVal, rightMotorVal);
+			}
+			//GamePad.SetVibration(PlayerIndex.One, 0f, 0f);
+		}*/
 
 		for ( int i = 1; i < 3; i++ ) { // if 1 or 2 have been pressed, switch characters
 			if (Input.GetKeyDown(i.ToString()) && currChar != i) {
@@ -262,6 +306,35 @@ public class AvatarScript2 : MonoBehaviour {
 		// keep track of previous direction to detect sudden changes
 		prevDirection = moveDirection.x;
     }
+
+
+	//------------------------------------------------------------------------------------------------//
+	// motor pattern
+	//------------------------------------------------------------------------------------------------//
+	void triggerLeftMotor() {
+		Debug.Log("left motor: " + (Time.time - motorStart));
+		if ((Time.time - motorStart) > motorCurve.length - gapCorrection) {
+			Debug.Log ("switching to right motor at " + Time.time);
+			triggerRightMotor();
+		} else {
+			float leftMotorVal = motorCurve.Evaluate(Time.time-motorStart);
+			float rightMotorVal = 0;
+			GamePad.SetVibration(PlayerIndex.One, leftMotorVal, rightMotorVal);
+		}
+	}
+
+	void triggerRightMotor() {
+		Debug.Log ("right motor: " + (Time.time - secondMotorStart));
+		if ((Time.time - secondMotorStart) > motorCurve.length - gapCorrection) {
+			Debug.Log ("ending cycle");
+			motorTimer = 0;
+			return;
+		} else {
+			float rightMotorVal = motorCurve.Evaluate(Time.time-secondMotorStart);
+			float leftMotorVal = 0;
+			GamePad.SetVibration(PlayerIndex.One, leftMotorVal, rightMotorVal);
+		}
+	}
 	
     void FixedUpdate() {
 		initController = true;
