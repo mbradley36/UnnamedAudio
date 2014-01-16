@@ -61,6 +61,9 @@ public class AvatarScript2 : MonoBehaviour {
 	public float gapCorrection;
 	private int motorTimer = 0;
 
+	public GameObject guideChar;
+	private float guideCharsX;
+
 	public AudioClip collideLight; // our clips to be assigned
 	public AudioClip landLight;
 	public AudioClip collideHeavy;
@@ -133,6 +136,8 @@ public class AvatarScript2 : MonoBehaviour {
 
 		prevDirection = moveDirection.x;
 
+		guideCharsX = guideChar.transform.localPosition.x;
+
 		//motorCurve.preWrapMode = WrapMode.ClampForever;
 	}
 	
@@ -140,19 +145,20 @@ public class AvatarScript2 : MonoBehaviour {
 	// states, but you should consider adding some to keep the code better organized
 	void Update() {
 
-		//stop motors
+		//manually stop/resume motors
 		if (Input.GetKeyDown ("4")) {
-			motorTimer = motorGapLength +5;
-			motorStart = Time.time + motorCurve.length + 5;
-			secondMotorStart = motorStart;
+			pauseMotors();
+		}
+		if (Input.GetKeyDown("5")) {
+			resumeMotors();
 		}
 
 		motorTimer++;
-		Debug.Log ("motor timer is " + motorTimer + "and motorGapLength is " + motorGapLength);
+		if (debug) Debug.Log ("motor timer is " + motorTimer + "and motorGapLength is " + motorGapLength);
 		if (motorTimer < motorGapLength){
 			motorStart = Time.time;
 			secondMotorStart = Time.time + motorCurve.length - gapCorrection;
-			Debug.LogWarning ("setting motor one at " + motorStart + " and motor two at " + secondMotorStart);
+			if (debug) Debug.LogWarning ("setting motor one at " + motorStart + " and motor two at " + secondMotorStart);
 		} else if (motorTimer>motorGapLength) {
 			triggerLeftMotor();
 		} /*else if (motorTimer == motorGapLength*4){
@@ -204,7 +210,7 @@ public class AvatarScript2 : MonoBehaviour {
 				if( !audio.isPlaying) {
 					audio.Play();
 				}
-				Debug.Log( "first jump" );
+				if (debug) Debug.Log( "first jump" );
                 moveDirection.y = jumpSpeed;
 				body.transform.Rotate(new Vector3(0,0,0)); 
 			}
@@ -221,13 +227,17 @@ public class AvatarScript2 : MonoBehaviour {
 
 				if ( animState == falling ) { // allow to change direction if falling
 					if ( Input.GetAxis("Horizontal") > 0 ) moveDirection.x ++;
-	        		else if ( Input.GetAxis("Horizontal") < 0 ) moveDirection.x --;
+					else if ( Input.GetAxis("Horizontal") < 0 ) moveDirection.x --;
 				}
 			}
 
-        }
-
-        if ( Input.GetButtonUp("Jump") ) { // switch between single and double jump
+			if ( animState == jumping ) { // allow to change direction while jumping
+				if ( Input.GetAxis("Horizontal") > 0 ) moveDirection.x += 0.01f;
+				else if ( Input.GetAxis("Horizontal") < 0 ) moveDirection.x += 0.01f;
+			}
+		}
+		
+		if ( Input.GetButtonUp("Jump") ) { // switch between single and double jump
         	if( !canDoubleJump && canFirstJump ) { // can't first jump again, can now double
         		canDoubleJump = true; 
         		canFirstJump = false;
@@ -241,6 +251,12 @@ public class AvatarScript2 : MonoBehaviour {
 		{
 			moveDirection.y = 0f;
 			transform.Translate(new Vector3(0f, -topD + cDelta, 0f));				
+		}
+
+		if (moveDirection.x < 0) {
+			guideChar.transform.localPosition = new Vector3(-guideCharsX, guideChar.transform.localPosition.y, guideChar.transform.localPosition.z);
+		} else if (moveDirection.x > 0) {
+			guideChar.transform.localPosition = new Vector3(guideCharsX, guideChar.transform.localPosition.y, guideChar.transform.localPosition.z);
 		}
 		
 		// if we've bumped the left or right, and are moving in that direction, stop the movement
@@ -281,10 +297,10 @@ public class AvatarScript2 : MonoBehaviour {
 		if (isGrounded) 
 		{
 			// if below ground
-			if (bottomD > 0)
+			/*if (bottomD > 0)
 			{
 				transform.Translate(new Vector3(0f, bottomD - cDelta, 0f));				
-			}
+			}*/
 		} else {
 			moveDirection.y -= gravity * Time.deltaTime;
 		} 
@@ -312,9 +328,9 @@ public class AvatarScript2 : MonoBehaviour {
 	// motor pattern
 	//------------------------------------------------------------------------------------------------//
 	void triggerLeftMotor() {
-		Debug.Log("left motor: " + (Time.time - motorStart));
+		if(debug) Debug.Log("left motor: " + (Time.time - motorStart));
 		if ((Time.time - motorStart) > motorCurve.length - gapCorrection) {
-			Debug.Log ("switching to right motor at " + Time.time);
+			if (debug) Debug.Log ("switching to right motor at " + Time.time);
 			triggerRightMotor();
 		} else {
 			float leftMotorVal = motorCurve.Evaluate(Time.time-motorStart);
@@ -324,9 +340,9 @@ public class AvatarScript2 : MonoBehaviour {
 	}
 
 	void triggerRightMotor() {
-		Debug.Log ("right motor: " + (Time.time - secondMotorStart));
+		if (debug) Debug.Log ("right motor: " + (Time.time - secondMotorStart));
 		if ((Time.time - secondMotorStart) > motorCurve.length - gapCorrection) {
-			Debug.Log ("ending cycle");
+			if (debug) Debug.Log ("ending cycle");
 			motorTimer = 0;
 			return;
 		} else {
@@ -334,6 +350,16 @@ public class AvatarScript2 : MonoBehaviour {
 			float leftMotorVal = 0;
 			GamePad.SetVibration(PlayerIndex.One, leftMotorVal, rightMotorVal);
 		}
+	}
+
+	public void pauseMotors(){
+		motorTimer = motorGapLength +5;
+		motorStart = Time.time + motorCurve.length + 5;
+		secondMotorStart = motorStart;
+	}
+
+	public void resumeMotors(){
+		motorTimer = 0;
 	}
 	
     void FixedUpdate() {
@@ -544,6 +570,9 @@ public class AvatarScript2 : MonoBehaviour {
 
 	void HandleJumping () {
 		// Jumping
+
+		//pauseMotors();
+
 		if ( currChar == 1 ) {
 			// bounce on jumps
 			body.transform.localScale = Vector3.Lerp(body.transform.localScale, new Vector3(3,5,3), (speed*Time.deltaTime));
