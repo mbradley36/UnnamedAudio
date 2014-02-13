@@ -40,6 +40,9 @@ public class AvatarScript2 : MonoBehaviour {
     public float speed = 6.0F;
     public float jumpSpeed = 8.0F;
 	public float gravity = 10.0F;
+
+	public float charWidth;
+	private float jumpStartY;
 	
 	// could get these from the collider, but wanted to be able to change them
 	public float cHeight = 4.5f; 
@@ -71,6 +74,10 @@ public class AvatarScript2 : MonoBehaviour {
 	public AudioClip groundScrape;
 	public AudioClip jumpUp;
 
+	private AudioClip[] pitchArray;
+	public AudioClip pitch1, pitch2, pitch3, pitch4, pitch5, pitch6, pitch7;
+	private int currPitchPos;
+
 	private AudioClip landSound; // to hold current char's clips
 	private AudioClip collideSound;
 
@@ -84,6 +91,7 @@ public class AvatarScript2 : MonoBehaviour {
 	const int walking = 1;
 	const int jumping = 2;
 	const int falling = 3;
+	private int prevState;
 
 	private int goalRot = 0; // for character 1's flips
 	private float prevDirection; // to compare for direction changes
@@ -116,6 +124,10 @@ public class AvatarScript2 : MonoBehaviour {
 	
 
 	void Start (){
+		pitchArray = new AudioClip[]{pitch1, pitch2, pitch3, pitch4, pitch5, pitch6, pitch7};
+
+		jumpStartY = transform.position.y;
+		currPitchPos = 1;
      	// Assign body parts to variables;  
 		// -> could also have these as properties you set in editor
 		// -> could also have used Transform.Find to only search in the children of this object
@@ -200,6 +212,9 @@ public class AvatarScript2 : MonoBehaviour {
 		// need to deal with it differently because you can't just reset the vector (you need to 
 		// add the input to the vector, as you do gravity)
         if (isGrounded) { 
+			if (jumpStartY != transform.position.y) jumpStartY = transform.position.y;
+			currPitchPos = 1;
+
             moveDirection = new Vector3(Input.GetAxis("Horizontal"), 0f, 0f);
             moveDirection = transform.TransformDirection(moveDirection);
             moveDirection *= speed;
@@ -254,11 +269,11 @@ public class AvatarScript2 : MonoBehaviour {
 		}
 
 		if (moveDirection.x < 0) {
-			guideChar.transform.localPosition = new Vector3(-guideCharsX, guideChar.transform.localPosition.y, guideChar.transform.localPosition.z);
+			guideChar.transform.localPosition = new Vector3(-guideCharsX-charWidth, guideChar.transform.localPosition.y, guideChar.transform.localPosition.z);
 		} else if (moveDirection.x > 0) {
 			guideChar.transform.localPosition = new Vector3(guideCharsX, guideChar.transform.localPosition.y, guideChar.transform.localPosition.z);
 		}
-		
+
 		// if we've bumped the left or right, and are moving in that direction, stop the movement
 		// also, move "almost" out of whatever we colided with
 		if (bumpLeft && moveDirection.x < 0)
@@ -278,6 +293,7 @@ public class AvatarScript2 : MonoBehaviour {
 		{ 
 			if( debug ) Debug.Log ("GROUNDED");
 			animState = walking;
+			jumpStartY = transform.position.y;
 		} else {
 			if( debug ) Debug.Log ("NOT GROUNDED");
 			if(moveDirection.y > 1) {
@@ -308,6 +324,18 @@ public class AvatarScript2 : MonoBehaviour {
 		if ( moveDirection.x == 0 && moveDirection.y == 0 ) { // set to idle if not moving
 			animState = idle;
 		}
+
+
+		//check prev state to see if falling off platform
+		if (prevState == idle || prevState == walking) {
+			if(animState == falling) {
+				//set values for scale to play
+				currPitchPos = 6;
+				jumpStartY = transform.position.y-23;
+			}
+		}
+		prevState = animState;
+
 
 		switch ( animState ) { // determine which method to call
 			case idle:		 HandleIdle();			break;
@@ -570,6 +598,7 @@ public class AvatarScript2 : MonoBehaviour {
 
 	void HandleJumping () {
 		// Jumping
+		PlayHeightScale (true);
 
 		//pauseMotors();
 
@@ -595,6 +624,8 @@ public class AvatarScript2 : MonoBehaviour {
 
 	void HandleFalling () {
 		// Falling
+
+		PlayHeightScale (false);
 
 		if ( currChar == 1 ) {
 			// squish down
@@ -630,6 +661,23 @@ public class AvatarScript2 : MonoBehaviour {
 		 		scrapeParticles.Emit(3);
 		 	}
 		}
+	}
+
+	void PlayHeightScale(bool rising) {
+		Debug.Log("array positoin: " + (currPitchPos-1));
+		if(rising && (currPitchPos < pitchArray.Length+1)) {
+			if (transform.position.y > jumpStartY+(23.0f/6.0f)*(float)currPitchPos) {
+				audio.PlayOneShot((AudioClip)pitchArray[currPitchPos-1], 1.0f);
+				currPitchPos++;
+			}
+
+		} else if (currPitchPos > 1) {
+			if (transform.position.y < jumpStartY+(23.0f/6.0f)*currPitchPos) {
+				currPitchPos--;
+				audio.PlayOneShot((AudioClip)pitchArray[currPitchPos-1], 1.0f);
+			}
+		}
+
 	}
 
 }
