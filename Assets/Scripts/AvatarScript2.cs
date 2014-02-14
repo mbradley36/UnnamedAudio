@@ -165,6 +165,12 @@ public class AvatarScript2 : MonoBehaviour {
 			resumeMotors();
 		}
 
+		/*if(animState == idle) {
+			pauseMotors();
+		} else {
+			resumeMotors();
+		}*/
+
 		motorTimer++;
 		if (debug) Debug.Log ("motor timer is " + motorTimer + "and motorGapLength is " + motorGapLength);
 		if (motorTimer < motorGapLength){
@@ -374,7 +380,7 @@ public class AvatarScript2 : MonoBehaviour {
 			motorTimer = 0;
 			return;
 		} else {
-			float rightMotorVal = motorCurve.Evaluate(Time.time-secondMotorStart);
+			float rightMotorVal = motorCurve.Evaluate(Time.time-secondMotorStart)*1.5f;
 			float leftMotorVal = 0;
 			GamePad.SetVibration(PlayerIndex.One, leftMotorVal, rightMotorVal);
 		}
@@ -664,7 +670,6 @@ public class AvatarScript2 : MonoBehaviour {
 	}
 
 	void PlayHeightScale(bool rising) {
-		Debug.Log("array positoin: " + (currPitchPos-1));
 		if(rising && (currPitchPos < pitchArray.Length+1)) {
 			if (transform.position.y > jumpStartY+(23.0f/6.0f)*(float)currPitchPos) {
 				audio.PlayOneShot((AudioClip)pitchArray[currPitchPos-1], 1.0f);
