@@ -73,7 +73,7 @@ public class AvatarScript2 : MonoBehaviour {
 
 	public AudioClip collideLight; // our clips to be assigned
 	public AudioClip landLight;
-	public AudioClip platformLand;
+	public AudioClip platformLand, ghostPlatformLand;
 	public AudioClip collideHeavy;
 	public AudioClip landHeavy;
 	public AudioClip groundScrape;
@@ -471,6 +471,12 @@ public class AvatarScript2 : MonoBehaviour {
 		if (collision.gameObject.tag == "platform") {
 			if (transform.localPosition.y > collision.transform.position.y) {
 				audio.PlayOneShot(platformLand);
+			}
+		}
+
+		if (collision.gameObject.tag == "ghostPlatform") {
+			if (transform.localPosition.y > collision.transform.position.y) {
+				audio.PlayOneShot(ghostPlatformLand);
 			}
 		}
 	}
