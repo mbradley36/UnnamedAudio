@@ -58,8 +58,10 @@ public class AvatarScript2 : MonoBehaviour {
 
 	public ParticleSystem scrapeParticles;
 
-	public AnimationCurve motorCurve;
-	private float motorStart, secondMotorStart;
+	public AnimationCurve motorCurve, motorExitCurve, motorEnterCurve;
+	public float motorStart, motorStop;
+	//private float motorStart, secondMotorStart;
+	private bool motorsOn = false;
 	public int motorGapLength;
 	public float gapCorrection;
 	private int motorTimer = 0;
@@ -67,8 +69,11 @@ public class AvatarScript2 : MonoBehaviour {
 	public GameObject guideChar;
 	private float guideCharsX;
 
+	public int levelHeight;
+
 	public AudioClip collideLight; // our clips to be assigned
 	public AudioClip landLight;
+	public AudioClip platformLand;
 	public AudioClip collideHeavy;
 	public AudioClip landHeavy;
 	public AudioClip groundScrape;
@@ -86,7 +91,7 @@ public class AvatarScript2 : MonoBehaviour {
 	GameObject head;
 	GameObject body;
 
-	private int animState; // different states of animation
+	public int animState; // different states of animation
 	const int idle = 0;
 	const int walking = 1;
 	const int jumping = 2;
@@ -151,6 +156,21 @@ public class AvatarScript2 : MonoBehaviour {
 		guideCharsX = guideChar.transform.localPosition.x;
 
 		//motorCurve.preWrapMode = WrapMode.ClampForever;
+
+				//set pitch position based on screen height
+		for (int i=1; i < pitchArray.Length; i++) {
+			//check our position to the current multiple of screen height
+			if (transform.position.y > (i*(levelHeight/pitchArray.Length))) {
+				currPitchPos = i;
+			}
+		}
+
+		if(debug) {
+			Debug.Log("current pitch to screen position is: " + currPitchPos);
+			Debug.Log("total screen height: " + levelHeight);
+			Debug.Log("single screen increment at " + (levelHeight/pitchArray.Length) + " pixels.");
+		}
+
 	}
 	
 	// do you application logic, managing states and so on, in here.  These examples have no explicit
@@ -158,20 +178,15 @@ public class AvatarScript2 : MonoBehaviour {
 	void Update() {
 
 		//manually stop/resume motors
-		if (Input.GetKeyDown ("4")) {
+		/*if (Input.GetKeyDown ("4")) {
 			pauseMotors();
 		}
 		if (Input.GetKeyDown("5")) {
 			resumeMotors();
-		}
-
-		/*if(animState == idle) {
-			pauseMotors();
-		} else {
-			resumeMotors();
 		}*/
 
-		motorTimer++;
+		//when to call motors
+		/*motorTimer++;
 		if (debug) Debug.Log ("motor timer is " + motorTimer + "and motorGapLength is " + motorGapLength);
 		if (motorTimer < motorGapLength){
 			motorStart = Time.time;
@@ -179,22 +194,6 @@ public class AvatarScript2 : MonoBehaviour {
 			if (debug) Debug.LogWarning ("setting motor one at " + motorStart + " and motor two at " + secondMotorStart);
 		} else if (motorTimer>motorGapLength) {
 			triggerLeftMotor();
-		} /*else if (motorTimer == motorGapLength*4){
-			motorStart = Time.time;
-		} else if (motorTimer > motorGapLength*4) {
-			float leftMotorVal = 0;
-			float rightMotorVal = motorCurve.Evaluate(Time.time-motorStart);
-			GamePad.SetVibration(PlayerIndex.One, leftMotorVal, rightMotorVal);
-		}*/
-			
-			/*else if (motorTimer > 110){
-			motorTimer = 0;
-			for(float i= 0; i<0.6f; i+=0.1f) {
-				float leftMotorVal = 0.6f-i;
-				float rightMotorVal = 0;
-				GamePad.SetVibration(PlayerIndex.One, leftMotorVal, rightMotorVal);
-			}
-			//GamePad.SetVibration(PlayerIndex.One, 0f, 0f);
 		}*/
 
 		for ( int i = 1; i < 3; i++ ) { // if 1 or 2 have been pressed, switch characters
@@ -219,7 +218,7 @@ public class AvatarScript2 : MonoBehaviour {
 		// add the input to the vector, as you do gravity)
         if (isGrounded) { 
 			if (jumpStartY != transform.position.y) jumpStartY = transform.position.y;
-			currPitchPos = 1;
+			//currPitchPos = 1;
 
             moveDirection = new Vector3(Input.GetAxis("Horizontal"), 0f, 0f);
             moveDirection = transform.TransformDirection(moveDirection);
@@ -333,13 +332,13 @@ public class AvatarScript2 : MonoBehaviour {
 
 
 		//check prev state to see if falling off platform
-		if (prevState == idle || prevState == walking) {
+		/*if (prevState == idle || prevState == walking) {
 			if(animState == falling) {
 				//set values for scale to play
 				currPitchPos = 6;
 				jumpStartY = transform.position.y-23;
 			}
-		}
+		}*/
 		prevState = animState;
 
 
@@ -361,39 +360,23 @@ public class AvatarScript2 : MonoBehaviour {
 	//------------------------------------------------------------------------------------------------//
 	// motor pattern
 	//------------------------------------------------------------------------------------------------//
-	void triggerLeftMotor() {
-		if(debug) Debug.Log("left motor: " + (Time.time - motorStart));
-		if ((Time.time - motorStart) > motorCurve.length - gapCorrection) {
-			if (debug) Debug.Log ("switching to right motor at " + Time.time);
-			triggerRightMotor();
-		} else {
-			float leftMotorVal = motorCurve.Evaluate(Time.time-motorStart);
-			float rightMotorVal = 0;
-			GamePad.SetVibration(PlayerIndex.One, leftMotorVal, rightMotorVal);
+	public void triggerEdgeMotor() {
+		Debug.Log("triggerEdgeMotor() running " + (Time.time-motorStart));
+		float motorVal = motorEnterCurve.Evaluate(Time.time-motorStart);
+		GamePad.SetVibration(PlayerIndex.One, motorVal/2, motorVal);
+		motorsOn = true;
+	}
+
+	public void stopMotors() {
+		Debug.Log("stopMotors() running " + (Time.time-motorStop));
+		if (motorsOn) {
+			float motorVal = motorExitCurve.Evaluate(Time.time-motorStop);
+			GamePad.SetVibration(PlayerIndex.One, 0,0);
 		}
-	}
 
-	void triggerRightMotor() {
-		if (debug) Debug.Log ("right motor: " + (Time.time - secondMotorStart));
-		if ((Time.time - secondMotorStart) > motorCurve.length - gapCorrection) {
-			if (debug) Debug.Log ("ending cycle");
-			motorTimer = 0;
-			return;
-		} else {
-			float rightMotorVal = motorCurve.Evaluate(Time.time-secondMotorStart)*1.5f;
-			float leftMotorVal = 0;
-			GamePad.SetVibration(PlayerIndex.One, leftMotorVal, rightMotorVal);
+		if ((Time.time - motorStop) > motorExitCurve.length) {
+			motorsOn = false;
 		}
-	}
-
-	public void pauseMotors(){
-		motorTimer = motorGapLength +5;
-		motorStart = Time.time + motorCurve.length + 5;
-		secondMotorStart = motorStart;
-	}
-
-	public void resumeMotors(){
-		motorTimer = 0;
 	}
 	
     void FixedUpdate() {
@@ -482,6 +465,12 @@ public class AvatarScript2 : MonoBehaviour {
 				audio.PlayOneShot( landSound ); // play sound for char hitting ground
 				isGrounded = true;			
 				if( debug ) Debug.Log ("Collision Enter GROUNDED");
+			}
+		}
+
+		if (collision.gameObject.tag == "platform") {
+			if (transform.localPosition.y > collision.transform.position.y) {
+				audio.PlayOneShot(platformLand);
 			}
 		}
 	}
@@ -670,16 +659,18 @@ public class AvatarScript2 : MonoBehaviour {
 	}
 
 	void PlayHeightScale(bool rising) {
-		if(rising && (currPitchPos < pitchArray.Length+1)) {
-			if (transform.position.y > jumpStartY+(23.0f/6.0f)*(float)currPitchPos) {
-				audio.PlayOneShot((AudioClip)pitchArray[currPitchPos-1], 1.0f);
+		if(rising) {
+			if(debug)Debug.Log("rising to pitch position " + currPitchPos + " measures us at screen height " + ((currPitchPos)*(levelHeight/pitchArray.Length)));
+			if (transform.position.y > (currPitchPos)*(levelHeight/pitchArray.Length)) {
+				audio.PlayOneShot((AudioClip)pitchArray[currPitchPos], 1.0f);
 				currPitchPos++;
 			}
 
-		} else if (currPitchPos > 1) {
-			if (transform.position.y < jumpStartY+(23.0f/6.0f)*currPitchPos) {
+		} else {
+			if(debug)Debug.Log("falling from pitch position " + currPitchPos);
+			if (transform.position.y < (currPitchPos)*(levelHeight/pitchArray.Length)) {
 				currPitchPos--;
-				audio.PlayOneShot((AudioClip)pitchArray[currPitchPos-1], 1.0f);
+				audio.PlayOneShot((AudioClip)pitchArray[currPitchPos], 1.0f);
 			}
 		}
 
