@@ -79,6 +79,9 @@ public class AvatarScript2 : MonoBehaviour {
 	public AudioClip groundScrape;
 	public AudioClip jumpUp;
 
+	public AudioClip whistle;
+	public GameObject critter;
+
 	private AudioClip[] pitchArray;
 	public AudioClip pitch1, pitch2, pitch3, pitch4, pitch5, pitch6, pitch7;
 	private int currPitchPos;
@@ -126,9 +129,14 @@ public class AvatarScript2 : MonoBehaviour {
 	// to be called more often then collisions and collisions seem NOT to happen every
 	// frame!??
 	bool initController = false;
+
+	FollowerCritter critterScript;
 	
 
 	void Start (){
+
+		//moveDirection = new Vector3(0f, 0f, 0f);
+
 		pitchArray = new AudioClip[]{pitch1, pitch2, pitch3, pitch4, pitch5, pitch6, pitch7};
 
 		jumpStartY = transform.position.y;
@@ -171,37 +179,20 @@ public class AvatarScript2 : MonoBehaviour {
 			Debug.Log("single screen increment at " + (levelHeight/pitchArray.Length) + " pixels.");
 		}
 
+		critterScript = (FollowerCritter)critter.GetComponent ("FollowerCritter");
+
 	}
 	
 	// do you application logic, managing states and so on, in here.  These examples have no explicit
 	// states, but you should consider adding some to keep the code better organized
 	void Update() {
 
-		//manually stop/resume motors
-		/*if (Input.GetKeyDown ("4")) {
-			pauseMotors();
-		}
-		if (Input.GetKeyDown("5")) {
-			resumeMotors();
-		}*/
-
-		//when to call motors
-		/*motorTimer++;
-		if (debug) Debug.Log ("motor timer is " + motorTimer + "and motorGapLength is " + motorGapLength);
-		if (motorTimer < motorGapLength){
-			motorStart = Time.time;
-			secondMotorStart = Time.time + motorCurve.length - gapCorrection;
-			if (debug) Debug.LogWarning ("setting motor one at " + motorStart + " and motor two at " + secondMotorStart);
-		} else if (motorTimer>motorGapLength) {
-			triggerLeftMotor();
-		}*/
-
-		for ( int i = 1; i < 3; i++ ) { // if 1 or 2 have been pressed, switch characters
-			if (Input.GetKeyDown(i.ToString()) && currChar != i) {
-				if ( debug ) Debug.Log( "Character changed to: " + i );
-				currChar = i;
-				InitializeChar(currChar);
+		if (Input.GetButton("Whistle")) {
+			audio.clip = whistle;
+			if( !audio.isPlaying) {
+				audio.Play();
 			}
+			critterScript.following = true;
 		}
 
 	    if ( canDoubleJump && currChar == 1 ){ // allows second jump on char 1
@@ -213,17 +204,13 @@ public class AvatarScript2 : MonoBehaviour {
 			} 
 		}
 
-		// we only do input if on the ground. If you want to do left/right movement in the air, you 
-		// need to deal with it differently because you can't just reset the vector (you need to 
-		// add the input to the vector, as you do gravity)
+
         if (isGrounded) { 
-			if (jumpStartY != transform.position.y) jumpStartY = transform.position.y;
-			//currPitchPos = 1;
 
             moveDirection = new Vector3(Input.GetAxis("Horizontal"), 0f, 0f);
             moveDirection = transform.TransformDirection(moveDirection);
             moveDirection *= speed;
-			
+
 			// move up off the ground by adding an upward impulse
 			if ( Input.GetButton("Jump") ) {
 				audio.clip = jumpUp;
@@ -236,25 +223,17 @@ public class AvatarScript2 : MonoBehaviour {
 			}
 			
         } else {
-        	if ( currChar == 1 ) { // special considerations for char 1
-        		if ( canFirstJump ) { // can start first jump in air, since rarely on ground
-	        		if ( Input.GetButton("Jump") ) {
-					if ( debug ) Debug.Log( "first jump" );
-	                moveDirection.y = jumpSpeed;
-					body.transform.Rotate(new Vector3(0,0,0)); 
-					}	
-				}
-
-				if ( animState == falling ) { // allow to change direction if falling
-					if ( Input.GetAxis("Horizontal") > 0 ) moveDirection.x ++;
-					else if ( Input.GetAxis("Horizontal") < 0 ) moveDirection.x --;
-				}
-			}
 
 			if ( animState == jumping ) { // allow to change direction while jumping
-				if ( Input.GetAxis("Horizontal") > 0 ) moveDirection.x += 0.01f;
-				else if ( Input.GetAxis("Horizontal") < 0 ) moveDirection.x += 0.01f;
+				if ( Input.GetAxis("Horizontal") > 0 ) moveDirection.x += 0.05f;
+				else if ( Input.GetAxis("Horizontal") < 0 ) moveDirection.x -= 0.05f;
 			}
+
+			if ( animState == falling ) { // allow to change direction if falling
+				if ( Input.GetAxis("Horizontal") > 0 ) moveDirection.x += 0.05f;
+				else if ( Input.GetAxis("Horizontal") < 0 ) moveDirection.x -= 0.05f;
+			}
+
 		}
 		
 		if ( Input.GetButtonUp("Jump") ) { // switch between single and double jump
@@ -273,12 +252,6 @@ public class AvatarScript2 : MonoBehaviour {
 			transform.Translate(new Vector3(0f, -topD + cDelta, 0f));				
 		}
 
-		if (moveDirection.x < 0) {
-			guideChar.transform.localPosition = new Vector3(-guideCharsX-charWidth, guideChar.transform.localPosition.y, guideChar.transform.localPosition.z);
-		} else if (moveDirection.x > 0) {
-			guideChar.transform.localPosition = new Vector3(guideCharsX, guideChar.transform.localPosition.y, guideChar.transform.localPosition.z);
-		}
-
 		// if we've bumped the left or right, and are moving in that direction, stop the movement
 		// also, move "almost" out of whatever we colided with
 		if (bumpLeft && moveDirection.x < 0)
@@ -291,6 +264,13 @@ public class AvatarScript2 : MonoBehaviour {
 			transform.Translate(new Vector3(-rightD + cDelta, 0f, 0f));							
 		}
 
+		// keep guide character in front of player
+		if (moveDirection.x < 0) {
+			guideChar.transform.localPosition = new Vector3(-guideCharsX-charWidth, guideChar.transform.localPosition.y, guideChar.transform.localPosition.z);
+		} else if (moveDirection.x > 0) {
+			guideChar.transform.localPosition = new Vector3(guideCharsX, guideChar.transform.localPosition.y, guideChar.transform.localPosition.z);
+		}
+
 		// if we are moving up (jumping) do silly things with the head object.  If we are moving down,
 		// do something different, yet also silly.  When we are walking, do something different, yet
 		// just as silly
@@ -298,7 +278,6 @@ public class AvatarScript2 : MonoBehaviour {
 		{ 
 			if( debug ) Debug.Log ("GROUNDED");
 			animState = walking;
-			jumpStartY = transform.position.y;
 		} else {
 			if( debug ) Debug.Log ("NOT GROUNDED");
 			if(moveDirection.y > 1) {
@@ -329,18 +308,6 @@ public class AvatarScript2 : MonoBehaviour {
 		if ( moveDirection.x == 0 && moveDirection.y == 0 ) { // set to idle if not moving
 			animState = idle;
 		}
-
-
-		//check prev state to see if falling off platform
-		/*if (prevState == idle || prevState == walking) {
-			if(animState == falling) {
-				//set values for scale to play
-				currPitchPos = 6;
-				jumpStartY = transform.position.y-23;
-			}
-		}*/
-		prevState = animState;
-
 
 		switch ( animState ) { // determine which method to call
 			case idle:		 HandleIdle();			break;
