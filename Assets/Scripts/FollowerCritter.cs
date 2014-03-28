@@ -1,6 +1,12 @@
 ﻿using UnityEngine;
 using System.Collections;
 
+public enum CritterState{
+	Following,
+	Blocked,
+	Launched
+}
+
 public class FollowerCritter : MonoBehaviour {
 	public bool following;
 	private Vector3 critterDirection = new Vector3(0,0,0);
@@ -11,26 +17,32 @@ public class FollowerCritter : MonoBehaviour {
 	private bool stuck;
 
 	private Vector3 startPosition;
+	public CritterState state;
+	private bool blockedToRight;
+	private int launchCount;
+	public int launchDuration;
+
+	private float destinationX, destinationY;
+
+	float unitScaling = 1f;
 
 	// Use this for initialization
 	void Start () {
-		following = false;
+		following = true;
 		startPosition = new Vector3(transform.position.x, transform.position.y, transform.position.z);
+		state = CritterState.Following;
+		launchCount = 0;
 	}
 	
 	// Update is called once per frame
 	void Update () {
-	
-		 if (following && !stuck) {
-		 	SetDirectionValues(player);
-		 	following = false;
-		 } else if (following && stuck) {
-		 	audio.clip = ghostHitWall;
-			if( !audio.isPlaying) {
-				audio.Play();
-			}
-			following = false;
-		 }
+
+		switch(state) {
+			case CritterState.Following: 	HandleFollowing();  break;
+			case CritterState.Blocked: 		HandleBlocked();   	break;
+			case CritterState.Launched:		HandleLaunched(); 	break;
+		};
+
 
 		 if (critterDirection.x != 0 && critterDirection.y != 0) {
 		 		audio.clip = ghostTraveling;
@@ -45,31 +57,48 @@ public class FollowerCritter : MonoBehaviour {
 
 	}
 
-	void SetDirectionValues(GameObject goalPosition){
-		//Debug.Log("player x, y: " + player.transform.position.x +", "+ player.transform.position.y);
-	 	//Debug.Log("critter x, y: " + transform.position.x +", "+ transform.position.y);
-	 	/*float unitScaling = Mathf.Sqrt(
-	 						Mathf.Pow((goalPosition.transform.position.x - transform.position.x), 2) +
-	 						Mathf.Pow((goalPosition.transform.position.y - transform.position.y), 2)
-							);*/
-
-		float unitScaling = 1f;
-
-		critterDirection.x = (goalPosition.transform.position.x - transform.position.x)/unitScaling;
-		critterDirection.y = (goalPosition.transform.position.y - transform.position.y)/unitScaling;
-
-		//Debug.Log("new vector direction: " + critterDirection.x + ", " + critterDirection.y + ", " + critterDirection.z);
+	void HandleFollowing() {
+		SetDirectionValues(player);
 	}
 
-	void OnCollisionEnter(Collision collision) {
-		critterDirection = new Vector3(0,0,0);
-		audio.clip = ghostHitWall;
-		if( !audio.isPlaying) {
-			audio.Play();
-		}
+	void HandleBlocked() {
+		//distress noises
+			audio.clip = ghostHitWall;
+			if( !audio.isPlaying) {
+				audio.Play();
+			}
 
-		following = false;
-		stuck = true;
+			if(blockedToRight) {
+				if(player.transform.position.x < transform.position.x) {
+					state = CritterState.Following;
+				}
+			} else {
+				if(player.transform.position.x > transform.position.x) {
+					state = CritterState.Following;
+				}
+			}
+	}
+
+	void HandleLaunched(){
+		Debug.Log("launching char");
+		if(launchCount == 0) { //replace with curve
+			destinationX = ((player.transform.position.x - transform.position.x)/unitScaling);
+			destinationY = ((player.transform.position.y - transform.position.y)/unitScaling);
+		} else if (launchCount == launchDuration) {
+			launchCount = 0;
+			state = CritterState.Following;
+		}
+		critterDirection.x = destinationX;
+		critterDirection.y = destinationY+(float)launchCount;
+
+		launchCount ++;
+	}
+
+	void SetDirectionValues(GameObject goalPosition){
+
+		critterDirection.x = ((goalPosition.transform.position.x - transform.position.x)/unitScaling)*critterSpeed;
+		critterDirection.y = 0;
+
 	}
 
 	void OnTriggerEnter(Collider collide) {
@@ -79,8 +108,12 @@ public class FollowerCritter : MonoBehaviour {
 			audio.Play();
 		}
 
-		following = false;
-		stuck = true;
+		state = CritterState.Blocked;
+		if(transform.position.x < player.transform.position.x) {
+				blockedToRight = true;
+			}else {
+				blockedToRight = false;
+			}
 	}
 
 }

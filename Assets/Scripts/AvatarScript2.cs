@@ -192,7 +192,8 @@ public class AvatarScript2 : MonoBehaviour {
 			if( !audio.isPlaying) {
 				audio.Play();
 			}
-			critterScript.following = true;
+			//critterScript.following = true;
+			if(critterScript.state != CritterState.Blocked) critterScript.state = CritterState.Launched;
 		}
 
 	    if ( canDoubleJump && currChar == 1 ){ // allows second jump on char 1
